@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clone Humain - T.T.A Distribution</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0f0f1b;
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      overflow: hidden;
+    }
+
+    .container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, #1a1a2e 0%, #000 100%);
+    }
+
+    /* --- WRAPPER : Il prend exactement la taille de l'image de base --- */
+    .face-wrapper {
+      position: relative;
+      width: fit-content;
+      height: fit-content;
+      filter: drop-shadow(0 0 30px rgba(0, 240, 255, 0.15));
+    }
+
+    #faceBase {
+      display: block;
+      max-width: 90vw;
+      max-height: 85vh;
+      height: auto;
+      width: auto;
+      pointer-events: none;
+    }
+
+    /* --- LE MASQUE (Désormais forme variable) --- */
+    #mouthMaskContainer {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20%;
+      height: 10%;
+
+      /* border-radius n'est plus fixe ici, il est géré par le JS */
+
+      /* Bordure fine pour le repérage (à mettre opacity:0 pour la prod) */
+      border: 1px solid rgba(0, 240, 255, 0.5);
+      overflow: hidden;
+      z-index: 10;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    /* --- L'IMAGE DU VISÈME (Calque complet) --- */
+    #mouthSprite {
+      position: absolute;
+      top: 0;
+      left: 0;
+      max-width: none;
+      max-height: none;
+      pointer-events: none;
+    }
+
+    /* --- CONTROLS UI --- */
+    .controls {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      text-align: center;
+      z-index: 20;
+    }
+
+    button {
+      background: rgba(0, 240, 255, 0.1);
+      color: #00f0ff;
+      border: 1px solid #00f0ff;
+      padding: 10px 20px;
+      margin: 0 5px;
+      border-radius: 20px;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #00f0ff;
+      color: #000;
+    }
+
+    .status {
+      margin-top: 10px;
+      color: #aaa;
+      font-size: 0.9em;
+    }
+
+    /* --- SETTINGS PANEL --- */
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      right: -300px;
+      width: 300px;
+      height: 100vh;
+      background: rgba(16, 16, 26, 0.95);
+      border-left: 1px solid #00f0ff;
+      z-index: 100;
+      transition: right 0.3s;
+      padding: 20px;
+      box-sizing: border-box;
+      color: #fff;
+      overflow-y: auto;
+    }
+
+    .settings-panel.open {
+      right: 0;
+    }
+
+    .setting-group {
+      margin-bottom: 15px;
+    }
+
+    .setting-label {
+      display: block;
+      color: #888;
+      font-size: 0.8em;
+      margin-bottom: 5px;
+    }
+
+    input[type="number"],
+    input[type="range"] {
+      width: 100%;
+      background: #222;
+      border: 1px solid #444;
+      color: #fff;
+      padding: 5px;
+    }
+
+    h4 {
+      border-bottom: 1px solid #00f0ff;
+      padding-bottom: 5px;
+      margin-top: 20px;
+      color: #00f0ff;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <div class="face-wrapper" id="faceWrapper">
+      <img id="faceBase" src="zero.jpg" alt="Visage Base"
+        onerror="this.src='https://via.placeholder.com/600x800/222/555?text=ZERO.JPG+MANQUANT'" />
+      <div id="mouthMaskContainer">
+        <img id="mouthSprite" src="sprites/bouche_H.png" alt="Bouche" />
+      </div>
+    </div>
+
+    <div class="controls">
+      <button onclick="startListening()">🎤 Parler</button>
+      <button onclick="stopListening()">⏹️ Stop</button>
+      <button onclick="testSpeech()">🔊 Test</button>
+      <button onclick="toggleSettings()">⚙️ Réglages Masque</button>
+      <div class="status" id="status">Prêt.</div>
+    </div>
+  </div>
+
+  <!-- PANNEAU REGLAGES -->
+  <div class="settings-panel" id="settingsPanel">
+    <h3>Configuration <button style="float:right; padding:2px 8px;" onclick="toggleSettings()">×</button></h3>
+
+    <h4>Forme & Position</h4>
+    <p style="font-size:0.7em; color:#666;">Déplacez le rectangle sur la bouche.</p>
+
+    <div class="setting-group">
+      <label class="setting-label">Position X (%)</label>
+      <input type="range" id="maskLeft" min="0" max="100" step="0.1" value="48" oninput="updateMask()">
+    </div>
+
+    <div class="setting-group">
+      <label class="setting-label">Position Y (%)</label>
+      <input type="range" id="maskTop" min="0" max="100" step="0.1" value="45" oninput="updateMask()">
+    </div>
+
+    <div class="setting-group">
+      <label class="setting-label">Largeur (%)</label>
+      <input type="range" id="maskWidth" min="1" max="50" step="0.1" value="20" oninput="updateMask()">
+    </div>
+
+    <div class="setting-group">
+      <label class="setting-label">Hauteur (%)</label>
+      <input type="range" id="maskHeight" min="1" max="40" step="0.1" value="10" oninput="updateMask()">
+    </div>
+
+    <h4>Apparence</h4>
+    <div class="setting-group">
+      <label class="setting-label">Arrondi des coins (%)</label>
+      <!-- 0 = Rectangle strict, 50 = Ovale -->
+      <input type="range" id="maskRadius" min="0" max="50" step="1" value="0" oninput="updateMask()">
+      <small style="color:#666; font-size:0.7em;">0 = Rectangle, 50 = Ovale</small>
+    </div>
+
+    <div class="setting-group">
+      <label class="setting-label">Flou des bords (px)</label>
+      <input type="range" id="maskFeather" min="0" max="50" step="1" value="5" oninput="updateMask()">
+    </div>
+
+    <button style="width:100%; margin-top:20px;" onclick="saveSettings()">💾 Sauvegarder</button>
+  </div>
+
+  <script>
+    // --- CONFIGURATION ---
+    const VISEME_MAP = {
+      'A': 'bouche_A.png', 'B': 'bouche_B.png', 'C': 'bouche_C.png',
+      'D': 'bouche_D.png', 'E': 'bouche_E.png', 'F': 'bouche_F.png',
+      'G': 'bouche_G.png', 'H': 'bouche_H.png'
+    };
+
+    // --- LOGIQUE D'ALIGNEMENT ---
+    function updateMask() {
+      const wrapper = document.getElementById('faceWrapper');
+      const mask = document.getElementById('mouthMaskContainer');
+      const sprite = document.getElementById('mouthSprite');
+
+      const left = document.getElementById('maskLeft').value;
+      const top = document.getElementById('maskTop').value;
+      const width = document.getElementById('maskWidth').value;
+      const height = document.getElementById('maskHeight').value;
+      const feather = document.getElementById('maskFeather').value;
+      const radius = document.getElementById('maskRadius').value; // NOUVEAU
+
+      // Application des styles au masque
+      mask.style.left = left + '%';
+      mask.style.top = top + '%';
+      mask.style.width = width + '%';
+      mask.style.height = height + '%';
+      mask.style.borderRadius = radius + '%'; // Applique la forme (0% = rectangle)
+
+      mask.style.boxShadow = `inset 0 0 ${feather}px ${feather / 2}px rgba(0,0,0,0.8)`;
+
+      // Alignement du sprite interne (Négatif)
+      requestAnimationFrame(() => {
+        const wrapW = wrapper.offsetWidth;
+        const wrapH = wrapper.offsetHeight;
+
+        sprite.style.width = wrapW + 'px';
+        sprite.style.height = wrapH + 'px';
+
+        const maskRect = mask.getBoundingClientRect();
+        const wrapRect = wrapper.getBoundingClientRect();
+
+        const offsetX = maskRect.left - wrapRect.left;
+        const offsetY = maskRect.top - wrapRect.top;
+
+        sprite.style.left = (-offsetX) + 'px';
+        sprite.style.top = (-offsetY) + 'px';
+      });
+    }
+
+    window.addEventListener('resize', updateMask);
+    document.getElementById('faceBase').onload = updateMask;
+
+    // --- SETTINGS UI ---
+    function toggleSettings() {
+      document.getElementById('settingsPanel').classList.toggle('open');
+      setTimeout(updateMask, 100);
+    }
+
+    function saveSettings() {
+      const s = {
+        left: document.getElementById('maskLeft').value,
+        top: document.getElementById('maskTop').value,
+        width: document.getElementById('maskWidth').value,
+        height: document.getElementById('maskHeight').value,
+        feather: document.getElementById('maskFeather').value,
+        radius: document.getElementById('maskRadius').value // Sauvegarde du radius
+      };
+      localStorage.setItem('cloneSettings_rect', JSON.stringify(s));
+      alert("Sauvegardé !");
+    }
+
+    function loadSettings() {
+      const saved = localStorage.getItem('cloneSettings_rect');
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (s.left) document.getElementById('maskLeft').value = s.left;
+        if (s.top) document.getElementById('maskTop').value = s.top;
+        if (s.width) document.getElementById('maskWidth').value = s.width;
+        if (s.height) document.getElementById('maskHeight').value = s.height;
+        if (s.feather) document.getElementById('maskFeather').value = s.feather;
+        if (s.radius !== undefined) document.getElementById('maskRadius').value = s.radius;
+        updateMask();
+      }
+    }
+
+    // --- AUDIO & ANIMATION BASIQUE ---
+    let synth = window.speechSynthesis;
+    let recognition;
+    let animFrame;
+
+    function startListening() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return alert("Pas de support Speech API");
+
+      recognition = new SpeechRecognition();
+      recognition.lang = "fr-FR";
+      recognition.onresult = (e) => {
+        const txt = e.results[0][0].transcript;
+        document.getElementById('status').innerText = txt;
+        speak(txt);
+      };
+      recognition.start();
+      document.getElementById('status').innerText = "Écoute...";
+    }
+
+    function stopListening() {
+      if (recognition) recognition.stop();
+      synth.cancel();
+      cancelAnimationFrame(animFrame);
+      document.getElementById('mouthSprite').src = 'sprites/bouche_H.png';
+      document.getElementById('status').innerText = "Arrêté.";
+    }
+
+    function testSpeech() {
+      speak("Je parle maintenant avec un masque rectangulaire ajustable.");
+    }
+
+    function speak(text) {
+      if (synth.speaking) synth.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = 'fr-FR';
+
+      utt.onstart = () => { animateMouth(); };
+      utt.onend = () => {
+        cancelAnimationFrame(animFrame);
+        document.getElementById('mouthSprite').src = 'sprites/bouche_H.png';
+      };
+      synth.speak(utt);
+    }
+
+    function animateMouth() {
+      const keys = Object.keys(VISEME_MAP);
+      let lastTime = 0;
+      function loop(time) {
+        if (time - lastTime > 100) {
+          const r = keys[Math.floor(Math.random() * (keys.length - 1))];
+          document.getElementById('mouthSprite').src = `sprites/${VISEME_MAP[r]}`;
+          lastTime = time;
+        }
+        animFrame = requestAnimationFrame(loop);
+      }
+      animFrame = requestAnimationFrame(loop);
+    }
+
+    window.onload = () => {
+      loadSettings();
+      setTimeout(updateMask, 500);
+    };
+  </script>
+</body>
+
+</html>
