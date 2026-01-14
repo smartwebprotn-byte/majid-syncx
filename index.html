@@ -65,8 +65,8 @@
     /* --- L'IMAGE DU VISÈME (Calque complet) --- */
     #mouthSprite {
       position: absolute;
-      top: 0;
-      left: 0;
+      top: none;
+      left: none;
       max-width: none;
       max-height: none;
       pointer-events: none;
@@ -214,6 +214,25 @@
       <input type="range" id="maskFeather" min="0" max="50" step="1" value="5" oninput="updateMask()">
     </div>
 
+    <div class="setting-group">
+      <label class="setting-label">Masque visible</label>
+      <input type="checkbox" id="maskVisible" checked onchange="updateMask()">
+    </div>
+
+    <h4>Visème</h4>
+    <div class="setting-group">
+      <label class="setting-label">Déplacement X (px)</label>
+      <input type="range" id="visemeOffsetX" min="-500" max="500" step="1" value="0" oninput="updateMask()">
+    </div>
+    <div class="setting-group">
+      <label class="setting-label">Déplacement Y (px)</label>
+      <input type="range" id="visemeOffsetY" min="-500" max="500" step="1" value="0" oninput="updateMask()">
+    </div>
+    <div class="setting-group">
+      <label class="setting-label">Échelle (%)</label>
+      <input type="range" id="visemeScale" min="10" max="300" step="1" value="100" oninput="updateMask()">
+    </div>
+
     <button style="width:100%; margin-top:20px;" onclick="saveSettings()">💾 Sauvegarder</button>
   </div>
 
@@ -247,22 +266,28 @@
 
       mask.style.boxShadow = `inset 0 0 ${feather}px ${feather / 2}px rgba(0,0,0,0.8)`;
 
+      const maskVisible = document.getElementById('maskVisible').checked;
+      mask.style.display = maskVisible ? 'block' : 'none';
+
       // Alignement du sprite interne (Négatif)
       requestAnimationFrame(() => {
         const wrapW = wrapper.offsetWidth;
         const wrapH = wrapper.offsetHeight;
+        const scale = document.getElementById('visemeScale').value / 100;
 
-        sprite.style.width = wrapW + 'px';
-        sprite.style.height = wrapH + 'px';
+        sprite.style.width = (wrapW * scale) + 'px';
+        sprite.style.height = 'auto';
 
         const maskRect = mask.getBoundingClientRect();
         const wrapRect = wrapper.getBoundingClientRect();
 
         const offsetX = maskRect.left - wrapRect.left;
         const offsetY = maskRect.top - wrapRect.top;
+        const visemeOffsetX = parseInt(document.getElementById('visemeOffsetX').value);
+        const visemeOffsetY = parseInt(document.getElementById('visemeOffsetY').value);
 
-        sprite.style.left = (-offsetX) + 'px';
-        sprite.style.top = (-offsetY) + 'px';
+        sprite.style.left = (-offsetX + visemeOffsetX) + 'px';
+        sprite.style.top = (-offsetY + visemeOffsetY) + 'px';
       });
     }
 
@@ -276,16 +301,22 @@
     }
 
     function saveSettings() {
+      const maskVisible = document.getElementById('maskVisible').checked;
       const s = {
         left: document.getElementById('maskLeft').value,
         top: document.getElementById('maskTop').value,
         width: document.getElementById('maskWidth').value,
         height: document.getElementById('maskHeight').value,
         feather: document.getElementById('maskFeather').value,
-        radius: document.getElementById('maskRadius').value // Sauvegarde du radius
+        radius: document.getElementById('maskRadius').value,
+        visible: maskVisible,
+        offsetX: document.getElementById('visemeOffsetX').value,
+        offsetY: document.getElementById('visemeOffsetY').value,
+        scale: document.getElementById('visemeScale').value
       };
       localStorage.setItem('cloneSettings_rect', JSON.stringify(s));
-      alert("Sauvegardé !");
+      localStorage.setItem('defaultConfig', JSON.stringify(s)); // Sauvegarder comme défaut
+      alert("Configuration sauvegardée comme défaut !");
     }
 
     function loadSettings() {
@@ -298,6 +329,10 @@
         if (s.height) document.getElementById('maskHeight').value = s.height;
         if (s.feather) document.getElementById('maskFeather').value = s.feather;
         if (s.radius !== undefined) document.getElementById('maskRadius').value = s.radius;
+        if (s.visible !== undefined) document.getElementById('maskVisible').checked = s.visible;
+        if (s.offsetX) document.getElementById('visemeOffsetX').value = s.offsetX;
+        if (s.offsetY) document.getElementById('visemeOffsetY').value = s.offsetY;
+        if (s.scale) document.getElementById('visemeScale').value = s.scale;
         updateMask();
       }
     }
